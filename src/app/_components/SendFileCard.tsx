@@ -14,11 +14,9 @@ import { createId } from '@paralleldrive/cuid2';
 import JSZip from 'jszip';
 import SendForm from './SendForm';
 
-// Constantes
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
 const ZIP_FILE_NAME = 'files.zip';
 
-// Utilitaires
 const checkFileSize = (file: File): boolean => {
   return file.size <= MAX_FILE_SIZE;
 };
@@ -72,11 +70,14 @@ function validateFormData(
 async function uploadZipToStorage(
   fileId: string,
   zipBlob: Blob,
+  isPending = false,
 ): Promise<{ success: boolean; error?: string }> {
   const zipFile = new File([zipBlob], ZIP_FILE_NAME, {
     type: 'application/zip',
   });
-  const storagePath = `${fileId}/${ZIP_FILE_NAME}`;
+  const storagePath = isPending
+    ? `pending/${fileId}/${ZIP_FILE_NAME}`
+    : `${fileId}/${ZIP_FILE_NAME}`;
 
   const { error } = await supabase.storage.from('files').upload(storagePath, zipFile, {
     upsert: true,
@@ -93,6 +94,119 @@ async function uploadZipToStorage(
 }
 
 /**
+ * Stocke les métadonnées dans un fichier JSON temporaire
+ */
+async function storeMetadata(
+  token: string,
+  senderEmail: string,
+  recipientEmail: string,
+): Promise<{ success: boolean; error?: string }> {
+  const metadata = {
+    senderEmail,
+    recipientEmail,
+    createdAt: new Date().toISOString(),
+  };
+
+  const metadataFile = new File([JSON.stringify(metadata, null, 2)], 'metadata.json', {
+    type: 'application/json',
+  });
+  const storagePath = `pending/${token}/metadata.json`;
+
+  const { error } = await supabase.storage.from('files').upload(storagePath, metadataFile, {
+    upsert: true,
+  });
+
+  if (error) {
+    return {
+      success: false,
+      error: `Erreur lors du stockage des métadonnées: ${error.message}`,
+    };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Récupère les métadonnées depuis le stockage temporaire
+ */
+async function getMetadata(token: string): Promise<{
+  success: boolean;
+  data?: { senderEmail: string; recipientEmail: string };
+  error?: string;
+}> {
+  const storagePath = `pending/${token}/metadata.json`;
+
+  const { data, error } = await supabase.storage.from('files').download(storagePath);
+
+  if (error || !data) {
+    return {
+      success: false,
+      error: `Erreur lors de la récupération des métadonnées: ${error?.message || 'Fichier introuvable'}`,
+    };
+  }
+
+  try {
+    const text = await data.text();
+    const metadata = JSON.parse(text) as {
+      senderEmail: string;
+      recipientEmail: string;
+      createdAt: string;
+    };
+
+    const createdAt = new Date(metadata.createdAt);
+    const now = new Date();
+    const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+
+    if (hoursDiff > 1) {
+      return {
+        success: false,
+        error: 'Le lien de vérification a expiré. Veuillez recommencer.',
+      };
+    }
+
+    return {
+      success: true,
+      data: { senderEmail: metadata.senderEmail, recipientEmail: metadata.recipientEmail },
+    };
+  } catch (parseError) {
+    return {
+      success: false,
+      error: `Erreur lors de la lecture des métadonnées: ${parseError instanceof Error ? parseError.message : 'Erreur inconnue'}`,
+    };
+  }
+}
+
+/**
+ * Déplace les fichiers du dossier pending vers le dossier final
+ */
+async function moveFilesFromPendingToFinal(
+  token: string,
+  fileId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const pendingPath = `pending/${token}/${ZIP_FILE_NAME}`;
+  const finalPath = `${fileId}/${ZIP_FILE_NAME}`;
+
+  const { error: moveError } = await supabase.storage.from('files').move(pendingPath, finalPath);
+
+  if (moveError) {
+    return {
+      success: false,
+      error: `Erreur lors du déplacement du fichier: ${moveError.message}`,
+    };
+  }
+
+  const { error: deleteError } = await supabase.storage
+    .from('files')
+    .remove([`pending/${token}/metadata.json`]);
+
+  if (deleteError) {
+    console.error('Erreur lors de la suppression des fichiers temporaires:', deleteError);
+  }
+
+  return { success: true };
+}
+
+/**
  * Récupère l'URL de téléchargement signée pour un fichier
  */
 export async function getDownloadUrl(
@@ -103,14 +217,12 @@ export async function getDownloadUrl(
   try {
     const storagePath = `${fileId}/${ZIP_FILE_NAME}`;
 
-    // Vérifier que le fichier existe
     const { data: fileList, error: listError } = await supabase.storage.from('files').list(fileId);
 
     if (listError || !fileList || fileList.length === 0) {
       return { success: false, error: 'Fichier introuvable ou expiré' };
     }
 
-    // Générer une URL signée valide pour 24h
     const { data, error } = await supabase.storage
       .from('files')
       .createSignedUrl(storagePath, 86400); // 24h en secondes
@@ -133,37 +245,77 @@ export async function getDownloadUrl(
 
 /**
  * Server Action principale pour gérer l'upload de fichiers
+ * Stocke temporairement les fichiers et envoie un email de vérification
  */
 export async function handleSendFile(
   formData: FormData,
-): Promise<{ success: boolean; error?: string; fileId?: string }> {
+): Promise<{ success: boolean; error?: string; requiresVerification?: boolean }> {
   'use server';
 
   try {
-    // Extraction des données du formulaire
     const senderEmail = formData.get('senderEmail') as string;
     const recipientEmail = formData.get('recipientEmail') as string;
     const uploadedFiles = formData.getAll('uploadedFiles') as File[];
 
-    // Validation
     const validation = validateFormData(senderEmail, recipientEmail, uploadedFiles);
     if (!validation.isValid) {
       return { success: false, error: validation.error };
     }
 
-    // Création du zip
     const zipBlob = await createZipFile(uploadedFiles);
 
-    // Génération d'un ID unique pour le dossier
-    const fileId = createId();
+    const verificationToken = createId();
 
-    // Upload du zip vers Supabase
-    const uploadResult = await uploadZipToStorage(fileId, zipBlob);
+    const uploadResult = await uploadZipToStorage(verificationToken, zipBlob, true);
     if (!uploadResult.success) {
       return { success: false, error: uploadResult.error };
     }
 
-    // Envoi de l'email
+    const metadataResult = await storeMetadata(verificationToken, senderEmail, recipientEmail);
+    if (!metadataResult.success) {
+      return { success: false, error: metadataResult.error };
+    }
+
+    const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/verify?token=${verificationToken}`;
+    await sendEmail({
+      to: senderEmail,
+      subject: 'Vérifiez votre email - ZipMe',
+      template: 'verify-email',
+      props: { verifyUrl },
+    });
+
+    return { success: true, requiresVerification: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Erreur inattendue: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+    };
+  }
+}
+
+/**
+ * Finalise l'envoi après vérification du token
+ */
+export async function finalizeSendFile(
+  token: string,
+): Promise<{ success: boolean; error?: string; fileId?: string }> {
+  'use server';
+
+  try {
+    const metadataResult = await getMetadata(token);
+    if (!metadataResult.success || !metadataResult.data) {
+      return { success: false, error: metadataResult.error };
+    }
+
+    const { senderEmail, recipientEmail } = metadataResult.data;
+
+    const fileId = createId();
+
+    const moveResult = await moveFilesFromPendingToFinal(token, fileId);
+    if (!moveResult.success) {
+      return { success: false, error: moveResult.error };
+    }
+
     await sendEmail({
       to: recipientEmail,
       subject: 'Fichiers partagés - ZipMe',

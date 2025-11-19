@@ -28,7 +28,6 @@ const SendForm = () => {
       return;
     }
 
-    // Calculer la taille totale de tous les fichiers
     let totalSize = 0;
     for (let i = 0; i < files.length; i++) {
       totalSize += files[i].size;
@@ -60,13 +59,11 @@ const SendForm = () => {
     const formData = new FormData(e.currentTarget);
     const result = await handleSendFile(formData);
 
-    if (result.success && result.fileId) {
+    if (result.success && result.requiresVerification) {
       setSubmitSuccess(true);
-      // Réinitialiser le formulaire
       e?.currentTarget?.reset();
       setSelectedFiles(null);
-      // Rediriger vers la page avec l'ID du fichier
-      router.push(`/?id=${result.fileId}`);
+      setIsSubmitting(false);
     } else {
       setSubmitError(result.error || 'Une erreur est survenue');
       setIsSubmitting(false);
@@ -119,7 +116,13 @@ const SendForm = () => {
       </div>
       {submitError && <p className="text-xs text-red-500 italic">{submitError}</p>}
       {submitSuccess && (
-        <p className="text-xs text-green-500 italic">Fichiers envoyés avec succès !</p>
+        <div className="rounded-md border border-green-200 bg-green-50 p-3">
+          <p className="text-sm font-medium text-green-800">Email de vérification envoyé !</p>
+          <p className="mt-1 text-xs text-green-700">
+            Veuillez vérifier votre boîte de réception (y compris les spams) et cliquer sur le lien
+            de vérification pour finaliser l&apos;envoi de vos fichiers.
+          </p>
+        </div>
       )}
       <Button type="submit" disabled={!!fileError || isSubmitting}>
         {isSubmitting ? 'Envoi en cours...' : 'Envoyer'}
