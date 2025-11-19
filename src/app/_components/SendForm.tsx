@@ -1,26 +1,26 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@radix-ui/react-label";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { handleSendFile } from "./SendFileCard";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@radix-ui/react-label';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { handleSendFile } from './SendFileCard';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
 
 const SendForm = () => {
   const router = useRouter();
-  const [fileError, setFileError] = useState<string>("");
+  const [fileError, setFileError] = useState<string>('');
   const [, setSelectedFiles] = useState<FileList | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string>("");
+  const [submitError, setSubmitError] = useState<string>('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    setFileError("");
-    setSubmitError("");
+    setFileError('');
+    setSubmitError('');
     setSubmitSuccess(false);
 
     if (!files || files.length === 0) {
@@ -38,7 +38,7 @@ const SendForm = () => {
       setFileError(
         `La taille totale des fichiers dépasse 5GB (${(totalSize / (1024 * 1024 * 1024)).toFixed(2)}GB)`,
       );
-      e.target.value = ""; // Réinitialiser l'input
+      e.target.value = ''; // Réinitialiser l'input
       setSelectedFiles(null);
       return;
     }
@@ -54,7 +54,7 @@ const SendForm = () => {
     }
 
     setIsSubmitting(true);
-    setSubmitError("");
+    setSubmitError('');
     setSubmitSuccess(false);
 
     const formData = new FormData(e.currentTarget);
@@ -68,7 +68,7 @@ const SendForm = () => {
       // Rediriger vers la page avec l'ID du fichier
       router.push(`/?id=${result.fileId}`);
     } else {
-      setSubmitError(result.error || "Une erreur est survenue");
+      setSubmitError(result.error || 'Une erreur est survenue');
       setIsSubmitting(false);
     }
   };
@@ -77,7 +77,7 @@ const SendForm = () => {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="grid w-full max-w-sm items-center gap-3">
         <Label htmlFor="senderEmail" className="gap-1">
-          Votre e-mail<span className="text-xs text-red-500 italic ">*</span>
+          Votre e-mail<span className="text-xs text-red-500 italic">*</span>
         </Label>
         <Input
           id="senderEmail"
@@ -91,7 +91,7 @@ const SendForm = () => {
       <div className="grid w-full max-w-sm items-center gap-3">
         <Label htmlFor="recipientEmail" className="gap-1">
           E-mail du destinataire
-          <span className="text-xs text-red-500 italic ">*</span>
+          <span className="text-xs text-red-500 italic">*</span>
         </Label>
         <Input
           id="recipientEmail"
@@ -104,10 +104,8 @@ const SendForm = () => {
       </div>
       <div className="grid w-full max-w-sm items-center gap-3">
         <Label htmlFor="uploadedFiles" className="gap-1">
-          Fichiers<span className="text-xs text-red-500 italic ">*</span>{" "}
-          <span className="text-xs text-muted-foreground italic">
-            (Taille maximale : 5GB)
-          </span>
+          Fichiers<span className="text-xs text-red-500 italic">*</span>{' '}
+          <span className="text-muted-foreground text-xs italic">(Taille maximale : 5GB)</span>
         </Label>
         <Input
           id="uploadedFiles"
@@ -117,20 +115,14 @@ const SendForm = () => {
           onChange={handleFileChange}
           required
         />
-        {fileError && (
-          <p className="text-xs text-red-500 italic">{fileError}</p>
-        )}
+        {fileError && <p className="text-xs text-red-500 italic">{fileError}</p>}
       </div>
-      {submitError && (
-        <p className="text-xs text-red-500 italic">{submitError}</p>
-      )}
+      {submitError && <p className="text-xs text-red-500 italic">{submitError}</p>}
       {submitSuccess && (
-        <p className="text-xs text-green-500 italic">
-          Fichiers envoyés avec succès !
-        </p>
+        <p className="text-xs text-green-500 italic">Fichiers envoyés avec succès !</p>
       )}
       <Button type="submit" disabled={!!fileError || isSubmitting}>
-        {isSubmitting ? "Envoi en cours..." : "Envoyer"}
+        {isSubmitting ? 'Envoi en cours...' : 'Envoyer'}
       </Button>
     </form>
   );

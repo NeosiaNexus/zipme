@@ -1,0 +1,13 @@
+node_modules
+.next
+dist
+public
+coverage
+*.log
+*.lock
+*.md
+*.svg
+.vscode
+.env
+.env.*
+out

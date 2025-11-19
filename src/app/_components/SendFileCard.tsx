@@ -1,4 +1,4 @@
-"use server";
+'use server';
 
 import {
   Card,
@@ -7,15 +7,15 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import supabase from "@/lib/supabase";
-import { createId } from "@paralleldrive/cuid2";
-import JSZip from "jszip";
-import SendForm from "./SendForm";
+} from '@/components/ui/card';
+import supabase from '@/lib/supabase';
+import { createId } from '@paralleldrive/cuid2';
+import JSZip from 'jszip';
+import SendForm from './SendForm';
 
 // Constantes
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
-const ZIP_FILE_NAME = "files.zip";
+const ZIP_FILE_NAME = 'files.zip';
 
 // Utilitaires
 const checkFileSize = (file: File): boolean => {
@@ -23,7 +23,7 @@ const checkFileSize = (file: File): boolean => {
 };
 
 const sanitizeFileName = (fileName: string): string => {
-  return fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+  return fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
 };
 
 /**
@@ -38,7 +38,7 @@ async function createZipFile(files: File[]): Promise<Blob> {
     zip.file(sanitizedName, arrayBuffer);
   }
 
-  return await zip.generateAsync({ type: "blob" });
+  return await zip.generateAsync({ type: 'blob' });
 }
 
 /**
@@ -49,13 +49,8 @@ function validateFormData(
   recipientEmail: string | null,
   uploadedFiles: File[],
 ): { isValid: boolean; error?: string } {
-  if (
-    !senderEmail ||
-    !recipientEmail ||
-    !uploadedFiles ||
-    uploadedFiles.length === 0
-  ) {
-    return { isValid: false, error: "Tous les champs sont requis" };
+  if (!senderEmail || !recipientEmail || !uploadedFiles || uploadedFiles.length === 0) {
+    return { isValid: false, error: 'Tous les champs sont requis' };
   }
 
   for (const file of uploadedFiles) {
@@ -78,15 +73,13 @@ async function uploadZipToStorage(
   zipBlob: Blob,
 ): Promise<{ success: boolean; error?: string }> {
   const zipFile = new File([zipBlob], ZIP_FILE_NAME, {
-    type: "application/zip",
+    type: 'application/zip',
   });
   const storagePath = `${fileId}/${ZIP_FILE_NAME}`;
 
-  const { error } = await supabase.storage
-    .from("files")
-    .upload(storagePath, zipFile, {
-      upsert: true,
-    });
+  const { error } = await supabase.storage.from('files').upload(storagePath, zipFile, {
+    upsert: true,
+  });
 
   if (error) {
     return {
@@ -104,29 +97,27 @@ async function uploadZipToStorage(
 export async function getDownloadUrl(
   fileId: string,
 ): Promise<{ success: boolean; url?: string; error?: string }> {
-  "use server";
+  'use server';
 
   try {
     const storagePath = `${fileId}/${ZIP_FILE_NAME}`;
 
     // Vérifier que le fichier existe
-    const { data: fileList, error: listError } = await supabase.storage
-      .from("files")
-      .list(fileId);
+    const { data: fileList, error: listError } = await supabase.storage.from('files').list(fileId);
 
     if (listError || !fileList || fileList.length === 0) {
-      return { success: false, error: "Fichier introuvable ou expiré" };
+      return { success: false, error: 'Fichier introuvable ou expiré' };
     }
 
     // Générer une URL signée valide pour 24h
     const { data, error } = await supabase.storage
-      .from("files")
+      .from('files')
       .createSignedUrl(storagePath, 86400); // 24h en secondes
 
     if (error || !data) {
       return {
         success: false,
-        error: `Erreur lors de la génération de l'URL: ${error?.message || "Erreur inconnue"}`,
+        error: `Erreur lors de la génération de l'URL: ${error?.message || 'Erreur inconnue'}`,
       };
     }
 
@@ -134,7 +125,7 @@ export async function getDownloadUrl(
   } catch (error) {
     return {
       success: false,
-      error: `Erreur inattendue: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+      error: `Erreur inattendue: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
     };
   }
 }
@@ -145,20 +136,16 @@ export async function getDownloadUrl(
 export async function handleSendFile(
   formData: FormData,
 ): Promise<{ success: boolean; error?: string; fileId?: string }> {
-  "use server";
+  'use server';
 
   try {
     // Extraction des données du formulaire
-    const senderEmail = formData.get("senderEmail") as string;
-    const recipientEmail = formData.get("recipientEmail") as string;
-    const uploadedFiles = formData.getAll("uploadedFiles") as File[];
+    const senderEmail = formData.get('senderEmail') as string;
+    const recipientEmail = formData.get('recipientEmail') as string;
+    const uploadedFiles = formData.getAll('uploadedFiles') as File[];
 
     // Validation
-    const validation = validateFormData(
-      senderEmail,
-      recipientEmail,
-      uploadedFiles,
-    );
+    const validation = validateFormData(senderEmail, recipientEmail, uploadedFiles);
     if (!validation.isValid) {
       return { success: false, error: validation.error };
     }
@@ -179,7 +166,7 @@ export async function handleSendFile(
   } catch (error) {
     return {
       success: false,
-      error: `Erreur inattendue: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+      error: `Erreur inattendue: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
     };
   }
 }
@@ -189,15 +176,13 @@ const SendFileCard = () => {
     <Card>
       <CardHeader className="text-center">
         <CardTitle>Envoyer des fichiers</CardTitle>
-        <CardDescription>
-          Envoyez des fichiers à vos amis, famille, collègues, etc.
-        </CardDescription>
+        <CardDescription>Envoyez des fichiers à vos amis, famille, collègues, etc.</CardDescription>
       </CardHeader>
       <CardContent>
         <SendForm />
       </CardContent>
       <CardFooter>
-        <p className="text-xs text-muted-foreground italic text-center w-full uppercase">
+        <p className="text-muted-foreground w-full text-center text-xs uppercase italic">
           Vos fichiers restent maximum 24h dans nos serveurs
         </p>
       </CardFooter>
