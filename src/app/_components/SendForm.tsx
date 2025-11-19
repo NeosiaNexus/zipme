@@ -3,14 +3,12 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@radix-ui/react-label';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { handleSendFile } from './SendFileCard';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
 
 const SendForm = () => {
-  const router = useRouter();
   const [fileError, setFileError] = useState<string>('');
   const [, setSelectedFiles] = useState<FileList | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
