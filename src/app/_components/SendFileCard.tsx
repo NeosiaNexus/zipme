@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import sendEmail from '@/lib/email/send';
 import supabase from '@/lib/supabase';
 import { createId } from '@paralleldrive/cuid2';
 import JSZip from 'jszip';
@@ -161,6 +162,14 @@ export async function handleSendFile(
     if (!uploadResult.success) {
       return { success: false, error: uploadResult.error };
     }
+
+    // Envoi de l'email
+    await sendEmail({
+      to: recipientEmail,
+      subject: 'Fichiers partagés - ZipMe',
+      template: 'send-file',
+      props: { senderEmail, url: `${process.env.NEXT_PUBLIC_APP_URL}/?id=${fileId}` },
+    });
 
     return { success: true, fileId };
   } catch (error) {
