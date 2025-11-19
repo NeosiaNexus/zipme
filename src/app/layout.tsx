@@ -6,7 +6,7 @@ const IMAGES = [
   "/img/back/beach.jpeg",
   "/img/back/city.jpg",
   "/img/back/forest.jpeg",
-  "public/img/back/jungle.jpg",
+  "/img/back/jungle.jpg",
 ];
 
 const poppins = Poppins({
@@ -19,7 +19,6 @@ export const metadata: Metadata = {
   title: "ZipMe",
   description: "ZipMe pour des échanges rapides et sécurisés",
 };
-
 
 import { cookies } from "next/headers";
 
@@ -36,8 +35,8 @@ export default async function RootLayout({
   let bg: string | undefined;
   try {
     const cookiesStore = await cookies();
-    bg = cookiesStore.get('bg')?.value;
-  } catch { }
+    bg = cookiesStore.get("bg")?.value;
+  } catch {}
   const initialBg = bg && IMAGES.includes(bg) ? bg : getRandomImage();
 
   return (

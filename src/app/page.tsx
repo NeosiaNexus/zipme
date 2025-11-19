@@ -1,16 +1,43 @@
-
 import DownloadFileCard from "./_components/DownloadFileCard";
-import SendFileCard from "./_components/SendFileCard";
+import SendFileCard, { getDownloadUrl } from "./_components/SendFileCard";
 
+interface HomeProps {
+  searchParams: Promise<{ id?: string }>;
+}
 
-export default async function Home() {
+export default async function Home({ searchParams }: HomeProps) {
+  const params = await searchParams;
+  const fileId = params.id;
+
+  let downloadUrl: string | undefined;
+  let hasError = false;
+  let errorMessage = "";
+
+  // Si un ID est présent dans l'URL, récupérer l'URL de téléchargement
+  if (fileId) {
+    const result = await getDownloadUrl(fileId);
+    if (result.success && result.url) {
+      downloadUrl = result.url;
+    } else {
+      hasError = true;
+      errorMessage =
+        result.error || "Erreur lors de la récupération du fichier";
+    }
+  }
+
   return (
     <div className="flex justify-center items-center w-full h-full">
       <div className="w-full flex gap-4 justify-center items-center">
         <SendFileCard />
-        <div className="w-full max-w-sm">
-          <DownloadFileCard senderEmail="test@test.com" fileName="test.pdf" message="test message" fileUrl="https://www.google.com" />
-        </div>
+        {fileId && (
+          <div className="w-full max-w-sm">
+            <DownloadFileCard
+              fileName="files.zip"
+              fileUrl={downloadUrl}
+              error={hasError ? errorMessage : undefined}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
