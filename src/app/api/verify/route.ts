@@ -7,7 +7,10 @@ export async function GET(request: Request) {
 
   if (!token) {
     return NextResponse.redirect(
-      new URL(`/?error=${encodeURIComponent('Token manquant')}`, request.url),
+      new URL(
+        `${process.env.NEXT_PUBLIC_APP_URL}/?error=${encodeURIComponent('Token manquant')}`,
+        request.url,
+      ),
     );
   }
 
@@ -15,11 +18,16 @@ export async function GET(request: Request) {
     const result = await finalizeSendFile(token);
 
     if (result.success && result.fileId) {
-      return NextResponse.redirect(new URL(`/?id=${result.fileId}&verified=true`, request.url));
+      return NextResponse.redirect(
+        new URL(
+          `${process.env.NEXT_PUBLIC_APP_URL}/?id=${result.fileId}&verified=true`,
+          request.url,
+        ),
+      );
     } else {
       return NextResponse.redirect(
         new URL(
-          `/?error=${encodeURIComponent(result.error || 'Erreur lors de la vérification')}`,
+          `${process.env.NEXT_PUBLIC_APP_URL}/?error=${encodeURIComponent(result.error || 'Erreur lors de la vérification')}`,
           request.url,
         ),
       );
@@ -27,7 +35,7 @@ export async function GET(request: Request) {
   } catch (error) {
     return NextResponse.redirect(
       new URL(
-        `/?error=${encodeURIComponent(error instanceof Error ? error.message : 'Erreur inattendue')}`,
+        `${process.env.NEXT_PUBLIC_APP_URL}/?error=${encodeURIComponent(error instanceof Error ? error.message : 'Erreur inattendue')}`,
         request.url,
       ),
     );
